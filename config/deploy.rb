@@ -1,5 +1,22 @@
-set :application, 'my_app_name'
-set :repo_url, 'git@example.com:me/my_repo.git'
+SSHKit.config.command_map[:rake] = "bundle exec rake"
+# config valid only for current version of Capistrano
+
+set :application, 'test'
+set :repo_url, 'https://github.com/lelix/test-rails.git'
+set :branch, "development"
+
+set :stages, ["production", "staging"]
+set :default_stage, "staging"
+set :whenever_identifier, ->{ "#{fetch(:application)}_#{fetch(:stage)}" }
+set :pty, false
+set :deploy_via, :remote_cache
+set :scm, :git
+set :keep_releases, 5
+
+set :linked_files, fetch(:linked_files, []).push('config/database.yml', 'config/secrets.yml')
+set :linked_dirs, %w{bin log tmp/pids tmp/cache tmp/sockets vendor/bundle public/system}
+set :tests, []
+
 
 # ask :branch, proc { `git rev-parse --abbrev-ref HEAD`.chomp }
 
@@ -16,25 +33,36 @@ set :repo_url, 'git@example.com:me/my_repo.git'
 # set :default_env, { path: "/opt/ruby/bin:$PATH" }
 # set :keep_releases, 5
 
+namespace :setup do
+  
+  desc "Upload database.yml file."
+  task :upload_yml do
+    on roles(:app) do
+      execute "mkdir -p #{shared_path}/config"
+      upload! "config/database.yml", "#{shared_path}/config/database.yml"
+      upload! "config/secrets.yml", "#{shared_path}/config/secrets.yml"
+    end
+  end
+  
+  desc "Seed the database."
+  task :seed_db do
+    on roles(:app) do
+      within "#{release_path}" do
+        execute :rake, "db:seed RAILS_ENV=#{fetch :stage}"
+      end
+    end
+  end
+
+#before 'deploy:publishing', 'setup:seed_db'
+end
 namespace :deploy do
-
-  desc 'Restart application'
+  desc "apache server."
   task :restart do
-    on roles(:app), in: :sequence, wait: 5 do
-      # Your restart mechanism here, for example:
-      # execute :touch, release_path.join('tmp/restart.txt')
+    on roles(:app) do
+      within "#{release_path}" do
+        execute :sudo, "service apache2 restart"
+      end
     end
   end
-
-  after :restart, :clear_cache do
-    on roles(:web), in: :groups, limit: 3, wait: 10 do
-      # Here we can do anything such as:
-      # within release_path do
-      #   execute :rake, 'cache:clear'
-      # end
-    end
-  end
-
-  after :finishing, 'deploy:cleanup'
-
+after :finishing, 'deploy:restart'
 end
