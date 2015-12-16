@@ -60,7 +60,7 @@ namespace :deploy do
   task :restart do
     on roles(:app) do
       within "#{release_path}" do
-        execute :sudo, "service apache2 restart"
+        execute :sudo, "systemctl restart httpd.service"
       end
     end
   end
