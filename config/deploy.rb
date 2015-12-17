@@ -52,17 +52,16 @@ namespace :setup do
       end
     end
   end
-
 #before 'deploy:publishing', 'setup:seed_db'
 end
-#namespace :deploy do
-#  desc "apache server."
-#  task :restart do
-#    on roles(:app) do
-#      within "#{release_path}" do
+namespace :deploy do
+  desc "apache server."
+  task :restart do
+    on roles(:app) do
+      within "#{release_path}" do
 #        execute :sudo, "systemctl restart httpd.service"
-#      end
-#    end
-#  end
-#after :finishing, 'deploy:restart'
-#end
+      end
+    end
+  end
+after :finishing, 'deploy:restart'
+end
